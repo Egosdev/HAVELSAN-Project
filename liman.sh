@@ -107,7 +107,7 @@ function install_liman() {
 
 		# Create an administrator password
 		sudo limanctl administrator
-		
+
 		# Check service status
 		health
 }
@@ -115,21 +115,30 @@ function install_liman() {
 function uninstall_liman() {
 
 		# Removes Liman and its dependencies
-		if sudo apt autoremove liman -y \
-		&& rm -rf /usr/bin/limanctl; then
+		if sudo apt remove liman -y \
+  		&& sudo apt autoremove liman -y \
+		&& sudo rm -rf /usr/bin/limanctl; then
 				log "Liman başarıyla kaldırıldı!" 0
 		else
 				log "Liman kaldırılırken bir hata oluştu." 1
 				exit 1
+		fi
 }
 
 function reset_administrator() {
-		
+
 		# Reset Liman administrator password
 		sudo limanctl reset administrator@liman.dev
 }
 
 function reset_mail() {
+
+		# Ensure argument is not null
+		if [ -z "$param_two" ]; then
+				log "E-posta bilgisi boş geçilemez." 1
+				echo "Kullanım: ./liman.sh reset <e-posta>"
+				exit 1
+		fi
 
 		# Reset Liman user password by mail
 		sudo limanctl reset "$param_two"
@@ -138,7 +147,13 @@ function reset_mail() {
 function health() {
 
 		# Status of Liman services
-		sudo limanctl service
+		if sudo limanctl service &>/dev/null; then
+				sudo limanctl service
+    				sudo supervisorctl status all
+		else
+				log "Liman kurulu değil, servisler bulunamadı." 1
+				exit 1
+		fi
 }
 
 function display_help() {
@@ -148,7 +163,7 @@ Liman Kurulum Sihirbazı
 Kullanım: ./liman.sh [komut]
 
 Komutlar:
- ./liman.sh kur               -> Limanı kurar.
+ ./liman.sh kur               -> Limanı kurar. (Son sürüm)
  ./liman.sh kaldır            -> Limanı kaldırır.
  ./liman.sh sağlık            -> Liman servislerinin durumlarını gösterir.
  ./liman.sh adminyenile       -> Liman yönetici parolasını sıfırlar.
