@@ -19,21 +19,41 @@ function log() {
 		local text="$1"
 		local status="$2"
 		local name="Limankur >"
+		local current_time=$(date +"%H:%M:%S")
+		local status_text="OK"
 
 		# Status-based logging print system
 		case "$status" in
-				0) echo -e "\e[32m$name $text\e[0m";; # Success
-				1) echo -e "\e[31m$name $text\e[0m";; # Warning
-				*) echo -e "\e[36m$name $text\e[0m";; # Default
+				0) echo -e "\e[32m$name $text\e[0m";;                    # Success
+				1) echo -e "\e[31m$name $text\e[0m"; status_text=" -";;  # Warning
+				*) echo -e "\e[36m$name $text\e[0m";;                    # Default
 		esac
+
+		# Append current log to installer.log file
+		echo "$current_time | $status_text | $name $text" | sudo tee -a /liman/installer.log >/dev/null
+}
+
+function create_log_file() {
+
+	# Make liman directory if does not exist
+	sudo mkdir -p /liman
+
+	# Create installer log
+	sudo touch /liman/installer.log
+
+	# Set installation date for installer log
+	install_date=$(date +"%F")
+
+	# The -a parameter causes writing to the end of the file
+	echo " $install_date Liman Kurulumu" | sudo tee -a /liman/installer.log >/dev/null
 }
 
 function add_php() {
 		log "Ubuntu'ya güncel php ekleniyor..."
 
-		# 1. Installs software-properties-common.
-		# 2. Adds the ondrej/php repository.
-		# 3. Updates the package lists via apt.
+		# 1. Installs software-properties-common
+		# 2. Adds the ondrej/php repository
+		# 3. Updates the package lists via apt
 		if sudo apt install -y software-properties-common \
 		&& sudo add-apt-repository -y ppa:ondrej/php \
 		&& sudo apt update; then
@@ -50,7 +70,7 @@ function add_nodejs() {
 		# 2. Create directory for keyrings
 		# 3. Fetch and store GPG key for NodeJS repository
 		# 4. Add NodeJS repository to sources list
-		# 5. Updates the package lists via apt.
+		# 5. Updates the package lists via apt
 		if sudo apt install -y ca-certificates curl gnupg gnupg2 \
 		&& sudo mkdir -p /etc/apt/keyrings \
 		&& curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
@@ -105,19 +125,25 @@ function install_liman() {
 				exit 1
 		fi
 
-		# Create an administrator password
-		sudo limanctl administrator
-
 		# Check service status
 		health
+
+		# IP adress
+		hostname -I
+
+		# Create an administrator password
+		sudo limanctl administrator
 }
 
 function uninstall_liman() {
 
 		# Removes Liman and its dependencies
 		if sudo apt remove liman -y \
-  		&& sudo apt autoremove liman -y \
-		&& sudo rm -rf /usr/bin/limanctl; then
+		&& sudo apt-get remove nginx nginx-common nginx-core* -y \
+		&& sudo apt-get autoremove -y \
+		&& sudo rm -rf /liman \
+		&& sudo rm -rf /etc/apt/keyrings/nodesource.gpg \
+		&& sudo apt-get install nginx -y; then
 				log "Liman başarıyla kaldırıldı!" 0
 		else
 				log "Liman kaldırılırken bir hata oluştu." 1
@@ -149,7 +175,7 @@ function health() {
 		# Status of Liman services
 		if sudo limanctl service &>/dev/null; then
 				sudo limanctl service
-    				sudo supervisorctl status all
+				sudo supervisorctl status all
 		else
 				log "Liman kurulu değil, servisler bulunamadı." 1
 				exit 1
@@ -173,7 +199,8 @@ Komutlar:
 
 # Calls the corresponding function by comparing the arguments entered by the user
 case "$param_one" in
-	"kur" | "install")
+	"kur" | "yükle" | "install")
+		create_log_file
 		check_version
 		add_php
 		add_nodejs
